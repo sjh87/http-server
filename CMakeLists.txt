@@ -8,7 +8,13 @@ set(CMAKE_CXX_STANDARD 23) # Enable the C++23 standard
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 find_package(Threads REQUIRED)
+find_package(ZLIB REQUIRED)  # Add this line to find zlib
 
 add_executable(server ${SOURCE_FILES})
 
-target_link_libraries(server PRIVATE Threads::Threads)
+target_link_libraries(server PRIVATE 
+    Threads::Threads
+    ZLIB::ZLIB  # Add this line to link zlib
+)
+
+target_include_directories(server PRIVATE ${ZLIB_INCLUDE_DIRS})
