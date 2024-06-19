@@ -8,6 +8,9 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#define HTTP_200 "HTTP/1.1 200 OK\r\n"
+#define HTTP_404 "HTTP/1.1 404 NOT FOUND\r\n"
+
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
@@ -55,9 +58,20 @@ int main(int argc, char **argv) {
   
   int socket_desc = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
 
+  char req[4097] = { '\0' };
+
+  ssize_t bytes_read = read(socket_desc, req, 4096);
+
   std::cout << "Client connected\n";
 
-  std::string status = "HTTP/1.1 200 OK\r\n";
+  std::string request = std::string(req);
+  std::string url = request.substr(0, request.find("\r\n"));
+
+  std::string verb = url.substr(0, url.find_first_of(" "));
+  std::string path = url.substr(url.find_first_of("/"), url.find_last_of(" ") - url.find_first_of("/"));
+
+  std::string status = path == "/" ? HTTP_200 : HTTP_404;
+
   std::string headers = "\r\n";
 
   std::string response = status + headers;
