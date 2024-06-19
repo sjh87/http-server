@@ -9,7 +9,7 @@
 #include <netdb.h>
 
 #define HTTP_200 "HTTP/1.1 200 OK\r\n"
-#define HTTP_404 "HTTP/1.1 404 NOT FOUND\r\n"
+#define HTTP_404 "HTTP/1.1 404 Not Found\r\n"
 
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
