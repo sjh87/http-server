@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <map>
+#include <regex>
 
 #define HTTP_200 "HTTP/1.1 200 OK\r\n"
 #define HTTP_404 "HTTP/1.1 404 Not Found\r\n"
@@ -19,6 +20,10 @@ class HTTPHeaders {
 
     void add(std::string key, std::string value) {
       headerMap[key] = value;
+    }
+
+    void add(std::string key, int value) {
+      headerMap[key] = std::to_string(value);
     }
 
     std::string toString() {
@@ -113,6 +118,48 @@ class HTTPResponse {
     }
 };
 
+class HTTPRequest {
+  std::string path;
+
+  public:
+    HTTPRequest(std::string req) {
+      std::string route = req.substr(0, req.find("\r\n"));
+
+      // std::string v = url.substr(0, url.find_first_of(" "));
+
+      std::string p = route.substr(0, route.find_last_of(" "));
+      path = p;
+    }
+
+    std::string getPath() {
+      return path;
+    }
+};
+
+
+
+HTTPResponse respond(HTTPRequest request) {
+    std::string path = request.getPath();
+
+    std::regex getEcho("GET /echo/[^/]*");
+    if (std::regex_match(path, getEcho)) {
+      std::string message = path.substr(path.find_last_of("/") + 1);
+
+      HTTPHeaders headers = HTTPHeaders();
+      headers.add("Content-Type", "text/plain");
+      headers.add("Content-Length", message.size() + 1);
+
+      HTTPBody body = HTTPBody(message);
+
+      return HTTPResponse(200, headers, body);
+    }
+
+    std::string getRoot = "GET /";
+    if (getRoot == path) return HTTPResponse(200);
+
+    return HTTPResponse(404);
+}
+
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
@@ -166,22 +213,16 @@ int main(int argc, char **argv) {
 
   std::cout << "Client connected\n";
 
-  if (!bytes_read) {
-    std::cout << "request payload is empty!";
+  if (bytes_read == -1) {
+    std::cout << "error when reading request!";
     close(server_fd);
 
     return EXIT_SUCCESS;
   }
 
-  std::string request = std::string(req);
-  std::string url = request.substr(0, request.find("\r\n"));
+  HTTPRequest request = HTTPRequest(std::string(req));
 
-  std::string verb = url.substr(0, url.find_first_of(" "));
-  std::string path = url.substr(url.find_first_of("/"), url.find_last_of(" ") - url.find_first_of("/"));
-
-  unsigned status = path == "/" ? 200 : 404;
-
-  HTTPResponse response = HTTPResponse(status);
+  HTTPResponse response = respond(request);
 
   std::string responseStr = response.toString();
 
