@@ -166,6 +166,13 @@ int main(int argc, char **argv) {
 
   std::cout << "Client connected\n";
 
+  if (!bytes_read) {
+    std::cout << "request payload is empty!";
+    close(server_fd);
+
+    return EXIT_SUCCESS;
+  }
+
   std::string request = std::string(req);
   std::string url = request.substr(0, request.find("\r\n"));
 
@@ -182,5 +189,5 @@ int main(int argc, char **argv) {
 
   close(server_fd);
 
-  return 0;
+  return EXIT_SUCCESS;
 }
