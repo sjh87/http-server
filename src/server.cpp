@@ -116,7 +116,7 @@ class HTTPResponse {
     }
 
     std::string toString() {
-      return "HTTP/1.1 " + status.toString() + "\r\n" + headers.toString() + "\r\n\r\n" + body.toString();
+      return status.toString() + "\r\n" + headers.toString() + "\r\n\r\n" + body.toString();
     }
 };
 
