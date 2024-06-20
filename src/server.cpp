@@ -30,8 +30,10 @@ class HTTPHeaders {
       std::string headerStr;
 
       for (auto [key, value]:headerMap) {
-        headerStr += key + ":" + value + "\n";
+        headerStr += key + ":" + value + "\r\n";
       }
+
+      headerStr.resize(headerStr.size() - 2);
 
       return headerStr;
     }
@@ -114,7 +116,7 @@ class HTTPResponse {
     }
 
     std::string toString() {
-      return status.toString() + "\r\n" + headers.toString() + "\r\n" + body.toString();
+      return status.toString() + "\r\n" + headers.toString() + "\r\n\r\n" + body.toString();
     }
 };
 
