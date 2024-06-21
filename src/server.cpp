@@ -1,22 +1,34 @@
-#include <iostream>
-#include <cstdlib>
-#include <string>
-#include <cstring>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <netdb.h>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
 #include <map>
+#include <netdb.h>
 #include <regex>
+#include <signal.h>
+#include <string>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define HTTP_200 "HTTP/1.1 200 OK\r\n"
 #define HTTP_404 "HTTP/1.1 404 Not Found\r\n"
+#define REQUEST_SIZE 2048
+
+bool running = true;
+int server_fd;
 
 class HTTPHeaders {
   std::map<std::string, std::string> headerMap;
 
   public:
+
+    HTTPHeaders() {
+    }
+
+    HTTPHeaders(std::map<std::string, std::string> map) {
+      headerMap = map;
+    }
 
     void add(std::string key, std::string value) {
       headerMap[key] = value;
@@ -101,6 +113,11 @@ class HTTPResponse {
 
   public:
 
+    HTTPResponse(HTTPStatus s, HTTPBody b) {
+      status = s;
+      body = b;
+    }
+
     HTTPResponse(HTTPStatus s) {
       status = s;
     }
@@ -118,9 +135,14 @@ class HTTPResponse {
     }
 
     std::string toString() {
-      return status.toString() + "\r\n" +
-             headers.toString() + "\r\n" +
-             body.toString();
+      std::string output;
+
+      output += status.toString();
+
+      if (headers.toString().size()) output += "\r\n" + headers.toString();
+      if (body.toString().size()) output += "\r\n" + body.toString();
+
+      return output;
     }
 };
 
@@ -170,8 +192,6 @@ class HTTPRequest {
     }
 };
 
-
-
 HTTPResponse respond(HTTPRequest request) {
     std::string path = request.getPath();
 
@@ -205,15 +225,46 @@ HTTPResponse respond(HTTPRequest request) {
     std::string getRoot = "GET /";
     if (getRoot == path) return HTTPResponse(200);
 
-    return HTTPResponse(404);
+    HTTPHeaders headers = HTTPHeaders({
+      {"Content-Type", "text/plain"},
+      {"Content-Length", "9"}
+    });
+
+    return HTTPResponse(404, headers, HTTPBody("Not Found"));
+}
+
+void closeServerHandler(int signal) {
+  std::cout << " Shutting down!" << std::endl;
+  close(server_fd);
+  exit(EXIT_SUCCESS);
+}
+
+void handleRequest(int socket_desc) {
+  char req[REQUEST_SIZE] = { '\0' };
+  ssize_t bytes_read = read(socket_desc, req, REQUEST_SIZE - 1);
+  std::cout << "Client connected\n";
+
+  if (bytes_read == -1) {
+    std::cout << "error when reading request!\n";
+    return;
+  }
+
+  HTTPRequest request = HTTPRequest(std::string(req));
+
+  HTTPResponse response = respond(request);
+
+  std::string responseStr = response.toString();
+
+  send(socket_desc, responseStr.data(), responseStr.size(), 0);
 }
 
 int main(int argc, char **argv) {
+  signal (SIGINT, closeServerHandler);
+
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
-  
-  // You can use print statements as follows for debugging, they'll be visible when running tests.
+
   std::cout << "Logs from your program will appear here!\n";
 
   // Uncomment this block to pass the first stage
@@ -224,8 +275,7 @@ int main(int argc, char **argv) {
    return EXIT_FAILURE;
   }
 
-  // // Since the tester restarts your program quite often, setting SO_REUSEADDR
-  // // ensures that we don't run into 'Address already in use' errors
+  // prevents 'Address already in use' errors
   int reuse = 1;
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
     std::cerr << "setsockopt failed\n";
@@ -242,41 +292,19 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  int connection_backlog = 5;
+  int connection_backlog = 10;
   if (listen(server_fd, connection_backlog) != 0) {
     std::cerr << "listen failed\n";
     return EXIT_FAILURE;
   }
 
-  struct sockaddr_in client_addr;
-  int client_addr_len = sizeof(client_addr);
-
-  std::cout << "Waiting for a client to connect...\n";
-
-  int socket_desc = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-
-  char req[4097] = { '\0' };
-
-  ssize_t bytes_read = read(socket_desc, req, 4096);
-
-  std::cout << "Client connected\n";
-
-  if (bytes_read == -1) {
-    std::cout << "error when reading request!\n";
-    close(server_fd);
-
-    return EXIT_SUCCESS;
+  while (running) {
+    std::cout << "Waiting for a client to connect...\n";
+    struct sockaddr_in client_addr;
+    int client_addr_len = sizeof(client_addr);
+    int socket_desc = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+    handleRequest(socket_desc);
   }
-
-  HTTPRequest request = HTTPRequest(std::string(req));
-
-  HTTPResponse response = respond(request);
-
-  std::string responseStr = response.toString();
-
-  send(socket_desc, responseStr.data(), responseStr.size() + 1, 0);
-
-  close(server_fd);
 
   return EXIT_SUCCESS;
 }
