@@ -143,11 +143,11 @@ class HTTPResponse {
 
       output += status.toString() + "\r\n";
 
-      if (headers.toString().size()) output + headers.toString();
+      if (headers.toString().size()) output += headers.toString();
 
       output += "\r\n";
 
-      if (body.toString().size()) output + body.toString();
+      if (body.toString().size()) output += body.toString();
 
       return output;
     }
@@ -206,7 +206,6 @@ HTTPResponse respond(HTTPRequest request) {
     if (getUserAgent == path) {
 
       std::string userAgent = request.getHeaders().getHeader("User-Agent");
-
       HTTPHeaders headers = HTTPHeaders();
       headers.add("Content-Type", "text/plain");
       headers.add("Content-Length", userAgent.size());
