@@ -182,7 +182,7 @@ HTTPResponse respond(HTTPRequest request) {
 
       HTTPHeaders headers = HTTPHeaders();
       headers.add("Content-Type", "text/plain");
-      headers.add("Content-Length", userAgent.size()+1);
+      headers.add("Content-Length", userAgent.size());
 
       HTTPBody body = HTTPBody(userAgent);
 
@@ -195,7 +195,7 @@ HTTPResponse respond(HTTPRequest request) {
 
       HTTPHeaders headers = HTTPHeaders();
       headers.add("Content-Type", "text/plain");
-      headers.add("Content-Length", message.size()+1);
+      headers.add("Content-Length", message.size());
 
       HTTPBody body = HTTPBody(message);
 
