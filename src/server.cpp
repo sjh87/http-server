@@ -30,10 +30,14 @@ class HTTPHeaders {
       std::string headerStr;
 
       for (auto [key, value]:headerMap) {
-        headerStr += key + ":" + value + "\r\n";
+        headerStr += key + ": " + value + "\r\n";
       }
 
       return headerStr;
+    }
+
+    std::string getHeader(std::string k) {
+      return headerMap[k];
     }
 };
 
@@ -114,25 +118,55 @@ class HTTPResponse {
     }
 
     std::string toString() {
-      return status.toString() + "\r\n" + headers.toString() + "\r\n" + body.toString();
+      return status.toString() + "\r\n" +
+             headers.toString() + "\r\n" +
+             body.toString();
     }
 };
 
 class HTTPRequest {
+  HTTPHeaders headers;
   std::string path;
+
+  void parseHeaders(std::string req) {
+    std::size_t startOfHeaderSection = req.find_first_of("\r\n") + 2;
+    std::size_t endOfHeaderSection = req.find_last_of("\r\n");
+    std::string headerSection =
+      req.substr(startOfHeaderSection, endOfHeaderSection);
+
+    std::string key;
+    std::string value;
+
+    while (headerSection.size()) {
+      std::size_t endOfHeader = headerSection.find_first_of("\r\n");
+      std::size_t endOfKey = headerSection.find_first_of(":");
+
+      if (endOfKey == -1) return;
+
+      key = headerSection.substr(0, endOfKey);
+      value = headerSection.substr(endOfKey + 2, (endOfHeader - endOfKey) - 2);
+
+      headers.add(key, value);
+
+      headerSection = headerSection.substr(endOfHeader + 2);
+    }
+  }
 
   public:
     HTTPRequest(std::string req) {
       std::string route = req.substr(0, req.find("\r\n"));
 
-      // std::string v = url.substr(0, url.find_first_of(" "));
-
+      parseHeaders(req);
       std::string p = route.substr(0, route.find_last_of(" "));
       path = p;
     }
 
     std::string getPath() {
       return path;
+    }
+
+    HTTPHeaders getHeaders() {
+      return headers;
     }
 };
 
@@ -141,13 +175,27 @@ class HTTPRequest {
 HTTPResponse respond(HTTPRequest request) {
     std::string path = request.getPath();
 
+    std::string getUserAgent = "GET /user-agent";
+    if (getUserAgent == path) {
+
+      std::string userAgent = request.getHeaders().getHeader("User-Agent");
+
+      HTTPHeaders headers = HTTPHeaders();
+      headers.add("Content-Type", "text/plain");
+      headers.add("Content-Length", userAgent.size()+1);
+
+      HTTPBody body = HTTPBody(userAgent);
+
+      return HTTPResponse(200, headers, body);
+    }
+
     std::regex getEcho("GET /echo/[^/]*");
     if (std::regex_match(path, getEcho)) {
       std::string message = path.substr(path.find_last_of("/") + 1);
 
       HTTPHeaders headers = HTTPHeaders();
       headers.add("Content-Type", "text/plain");
-      headers.add("Content-Length", message.size());
+      headers.add("Content-Length", message.size()+1);
 
       HTTPBody body = HTTPBody(message);
 
@@ -214,7 +262,7 @@ int main(int argc, char **argv) {
   std::cout << "Client connected\n";
 
   if (bytes_read == -1) {
-    std::cout << "error when reading request!";
+    std::cout << "error when reading request!\n";
     close(server_fd);
 
     return EXIT_SUCCESS;
