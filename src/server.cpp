@@ -143,7 +143,10 @@ class HTTPResponse {
 
       output += status.toString() + "\r\n";
 
-      if (headers.toString().size()) output + headers.toString() += "\r\n";
+      if (headers.toString().size()) output + headers.toString();
+
+      output += "\r\n";
+
       if (body.toString().size()) output + body.toString();
 
       return output;
