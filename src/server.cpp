@@ -141,10 +141,10 @@ class HTTPResponse {
     std::string toString() {
       std::string output;
 
-      output += status.toString();
+      output += status.toString() + "\r\n";
 
-      if (headers.toString().size()) output += "\r\n" + headers.toString();
-      if (body.toString().size()) output += "\r\n" + body.toString();
+      if (headers.toString().size()) output + headers.toString() += "\r\n";
+      if (body.toString().size()) output + body.toString();
 
       return output;
     }
