@@ -3,13 +3,17 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <mutex>
 #include <netdb.h>
+#include <queue>
 #include <regex>
 #include <signal.h>
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <semaphore>
+#include <thread>
 
 #define HTTP_200 "HTTP/1.1 200 OK\r\n"
 #define HTTP_404 "HTTP/1.1 404 Not Found\r\n"
@@ -233,6 +237,34 @@ HTTPResponse respond(HTTPRequest request) {
     return HTTPResponse(404, headers, HTTPBody("Not Found"));
 }
 
+class ConnectionQueue {
+  std::binary_semaphore s = std::binary_semaphore(0);
+  std::mutex m;
+  std::queue<int> q;
+
+  public:
+    void push(int socket_desc) {
+      std::lock_guard<std::mutex> lock(m);
+
+      q.push(socket_desc);
+
+      s.release();
+    }
+
+    int pop() {
+      s.acquire();
+      std::lock_guard<std::mutex> lock(m);
+
+      int d;
+
+      d = q.front();
+
+      q.pop();
+
+      return d;
+    }
+};
+
 void closeServerHandler(int signal) {
   std::cout << " Shutting down!" << std::endl;
   close(server_fd);
@@ -258,16 +290,20 @@ void handleRequest(int socket_desc) {
   send(socket_desc, responseStr.data(), responseStr.size(), 0);
 }
 
+void injestFromQueue(ConnectionQueue *q) {
+  while (true) {
+    int socket_desc = q->pop();
+    handleRequest(socket_desc);
+    close(socket_desc);
+  }
+}
+
 int main(int argc, char **argv) {
   signal (SIGINT, closeServerHandler);
 
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
-
-  std::cout << "Logs from your program will appear here!\n";
-
-  // Uncomment this block to pass the first stage
 
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
@@ -298,12 +334,22 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  ConnectionQueue *q = new ConnectionQueue();
+
+  std::thread t1(injestFromQueue, q);
+  std::thread t2(injestFromQueue, q);
+  std::thread t3(injestFromQueue, q);
+  std::thread t4(injestFromQueue, q);
+  std::thread t5(injestFromQueue, q);
+  std::thread t6(injestFromQueue, q);
+  std::thread t7(injestFromQueue, q);
+
   while (running) {
     std::cout << "Waiting for a client to connect...\n";
     struct sockaddr_in client_addr;
     int client_addr_len = sizeof(client_addr);
     int socket_desc = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-    handleRequest(socket_desc);
+    q->push(socket_desc);
   }
 
   return EXIT_SUCCESS;
