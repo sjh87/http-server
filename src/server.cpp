@@ -225,7 +225,7 @@ HTTPResponse respond(HTTPRequest request) {
 
       HTTPBody body = HTTPBody(message);
 
-      return HTTPResponse(200);
+      return HTTPResponse(200, headers, message);
     }
 
     std::string getRoot = "GET /";
