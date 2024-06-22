@@ -24,6 +24,8 @@
 bool running = true;
 int server_fd;
 
+enum CompressionTypes { GZIP };
+
 class HTTPHeaders {
   std::map<std::string, std::string> headerMap;
 
@@ -252,7 +254,9 @@ HTTPResponse respond(HTTPRequest request) {
       }
 
       HTTPHeaders headers = request.getHeaders();
-      if (headers.getHeader("Content-Type") != "application/octet-stream" || stoi(headers.getHeader("Content-Length")) != request.getBody().toString().size()) {
+      if (headers.getHeader("Content-Type") != "application/octet-stream"
+            || stoi(headers.getHeader("Content-Length")) != request.getBody().toString().size()
+      ) {
         return HTTPResponse(400);
       }
 
@@ -312,6 +316,9 @@ HTTPResponse respond(HTTPRequest request) {
       HTTPHeaders headers = HTTPHeaders();
       headers.add("Content-Type", "text/plain");
       headers.add("Content-Length", message.size());
+      if (request.getHeaders().getHeader("Accept-Encoding") == "gzip") {
+        headers.add("Content-Encoding", "gzip");
+      }
 
       HTTPBody body = HTTPBody(message);
 
