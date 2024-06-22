@@ -220,6 +220,10 @@ HTTPResponse respond(HTTPRequest request) {
       std::ifstream file (fullPath);
       std::string fileContents;
 
+      if (file.fail()) {
+        return HTTPResponse(404);
+      }
+
       if (file.is_open()) {
         while (file && fileContents.size() < 1024) {
           std::string line;
