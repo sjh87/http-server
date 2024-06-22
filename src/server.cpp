@@ -240,7 +240,7 @@ HTTPResponse respond(HTTPRequest request) {
 }
 
 class ConnectionQueue {
-  std::counting_semaphore<> s = std::counting_semaphore(0);
+  std::counting_semaphore<10> s = std::counting_semaphore<10>(0);
   std::mutex m;
   std::queue<int> q;
 
