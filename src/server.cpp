@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <mutex>
@@ -13,6 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <semaphore>
+#include <sys/stat.h>
 #include <thread>
 
 #define HTTP_200 "HTTP/1.1 200 OK\r\n"
@@ -70,6 +72,12 @@ class HTTPStatus {
       case 404:
         message = "Not Found";
         value = 404;
+
+        break;
+
+      case 500:
+        message = "Internal Server Error";
+        value = 500;
 
         break;
 
@@ -199,8 +207,36 @@ class HTTPRequest {
     }
 };
 
+std::string directory;
+
 HTTPResponse respond(HTTPRequest request) {
     std::string path = request.getPath();
+
+    std::regex getFiles("GET /files/[^/]*");
+    if (std::regex_match(path, getFiles)) {
+      std::string filename = path.substr(path.find_last_of("/") + 1);
+      std::string fullPath = directory + "/" + filename;
+
+      std::ifstream file (fullPath);
+      std::string fileContents;
+
+      if (file.is_open()) {
+        while (file && fileContents.size() < 1024) {
+          std::string line;
+          std::getline(file, line);
+          fileContents += line;
+        }
+      }
+
+      return HTTPResponse(
+        200,
+        HTTPHeaders({
+          {"Content-Type", "application/octet-stream"},
+          {"Content-Length", std::to_string(fileContents.size())}
+        }),
+        fileContents
+      );
+    }
 
     std::string getUserAgent = "GET /user-agent";
     if (getUserAgent == path) {
@@ -267,6 +303,8 @@ class ConnectionQueue {
     }
 };
 
+std::thread threadPool[7];
+
 void closeServerHandler(int signal) {
   std::cout << " Shutting down!" << std::endl;
   close(server_fd);
@@ -276,7 +314,6 @@ void closeServerHandler(int signal) {
 void handleRequest(int socket_desc) {
   char req[REQUEST_SIZE] = { '\0' };
   ssize_t bytes_read = read(socket_desc, req, REQUEST_SIZE - 1);
-  std::cout << "Client connected\n";
 
   if (bytes_read == -1) {
     std::cout << "error when reading request!\n";
@@ -295,13 +332,28 @@ void handleRequest(int socket_desc) {
 void ingestFromQueue(ConnectionQueue *q) {
   while (true) {
     int socket_desc = q->pop();
+
     handleRequest(socket_desc);
+
     close(socket_desc);
   }
 }
 
 int main(int argc, char **argv) {
   signal (SIGINT, closeServerHandler);
+
+  if (argc > 2) {
+    std::string arg1 = std::string(argv[1]);
+    std::string arg2 = std::string(argv[2]);
+    if (arg1 == "--directory") {
+      struct stat sb;
+      if (stat(arg2.data(), &sb)) {
+        std::cout << "directory " << arg2 << " does not exist!" << std::endl;
+        exit(1);
+      }
+      directory = arg2;
+    }
+  }
 
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
@@ -336,22 +388,15 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  ConnectionQueue *q = new ConnectionQueue();
+  ConnectionQueue q = ConnectionQueue();
 
-  std::thread t1(ingestFromQueue, q);
-  std::thread t2(ingestFromQueue, q);
-  std::thread t3(ingestFromQueue, q);
-  std::thread t4(ingestFromQueue, q);
-  std::thread t5(ingestFromQueue, q);
-  std::thread t6(ingestFromQueue, q);
-  std::thread t7(ingestFromQueue, q);
+  for (int i = 0; i < 7; i++) threadPool[i] = std::thread(ingestFromQueue, &q);
 
   while (running) {
-    std::cout << "Waiting for a client to connect...\n";
     struct sockaddr_in client_addr;
     int client_addr_len = sizeof(client_addr);
     int socket_desc = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-    q->push(socket_desc);
+    q.push(socket_desc);
   }
 
   return EXIT_SUCCESS;
