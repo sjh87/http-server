@@ -240,7 +240,7 @@ HTTPResponse respond(HTTPRequest request) {
 }
 
 class ConnectionQueue {
-  std::binary_semaphore s = std::binary_semaphore(0);
+  std::counting_semaphore<> s = std::counting_semaphore(0);
   std::mutex m;
   std::queue<int> q;
 
@@ -292,7 +292,7 @@ void handleRequest(int socket_desc) {
   send(socket_desc, responseStr.data(), responseStr.size(), 0);
 }
 
-void injestFromQueue(ConnectionQueue *q) {
+void ingestFromQueue(ConnectionQueue *q) {
   while (true) {
     int socket_desc = q->pop();
     handleRequest(socket_desc);
@@ -338,13 +338,13 @@ int main(int argc, char **argv) {
 
   ConnectionQueue *q = new ConnectionQueue();
 
-  std::thread t1(injestFromQueue, q);
-  std::thread t2(injestFromQueue, q);
-  std::thread t3(injestFromQueue, q);
-  std::thread t4(injestFromQueue, q);
-  std::thread t5(injestFromQueue, q);
-  std::thread t6(injestFromQueue, q);
-  std::thread t7(injestFromQueue, q);
+  std::thread t1(ingestFromQueue, q);
+  std::thread t2(ingestFromQueue, q);
+  std::thread t3(ingestFromQueue, q);
+  std::thread t4(ingestFromQueue, q);
+  std::thread t5(ingestFromQueue, q);
+  std::thread t6(ingestFromQueue, q);
+  std::thread t7(ingestFromQueue, q);
 
   while (running) {
     std::cout << "Waiting for a client to connect...\n";
