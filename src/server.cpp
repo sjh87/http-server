@@ -69,6 +69,12 @@ class HTTPStatus {
     {
       switch (v)
       {
+      case 400:
+        message = "Bad Request";
+        value = 400;
+
+        break;
+
       case 404:
         message = "Not Found";
         value = 404;
@@ -78,6 +84,12 @@ class HTTPStatus {
       case 500:
         message = "Internal Server Error";
         value = 500;
+
+        break;
+
+      case 201:
+        message = "Created";
+        value = 201;
 
         break;
 
@@ -163,6 +175,7 @@ class HTTPResponse {
 
 class HTTPRequest {
   HTTPHeaders headers;
+  HTTPBody body;
   std::string path;
 
   void parseHeaders(std::string req) {
@@ -196,6 +209,9 @@ class HTTPRequest {
       parseHeaders(req);
       std::string p = route.substr(0, route.find_last_of(" "));
       path = p;
+
+      std::string b = req.substr(req.find_last_of("\r\n") + 1);
+      body = HTTPBody(b);
     }
 
     std::string getPath() {
@@ -205,6 +221,10 @@ class HTTPRequest {
     HTTPHeaders getHeaders() {
       return headers;
     }
+
+    HTTPBody getBody() {
+      return body;
+    }
 };
 
 std::string directory;
@@ -212,8 +232,38 @@ std::string directory;
 HTTPResponse respond(HTTPRequest request) {
     std::string path = request.getPath();
 
-    std::regex getFiles("GET /files/[^/]*");
-    if (std::regex_match(path, getFiles)) {
+    std::regex postFile("POST /files/[^/]*");
+    if (std::regex_match(path, postFile)) {
+      if (!directory.size()) {
+        return HTTPResponse(500);
+      }
+
+      std::string filename = path.substr(path.find_last_of("/") + 1);
+
+      if (!filename.size() || !request.getBody().toString().size()) {
+        return HTTPResponse(400);
+      }
+
+      std::string fullPath = directory + "/" + filename;
+
+      std::ofstream file (fullPath);
+      if (file.fail()) {
+        return HTTPResponse(500);
+      }
+
+      HTTPHeaders headers = request.getHeaders();
+      if (headers.getHeader("Content-Type") != "application/octet-stream" || stoi(headers.getHeader("Content-Length")) != request.getBody().toString().size()) {
+        return HTTPResponse(400);
+      }
+
+      file << request.getBody().toString();
+      file.close();
+
+      return HTTPResponse(201);
+    }
+
+    std::regex getFile("GET /files/[^/]*");
+    if (std::regex_match(path, getFile)) {
       std::string filename = path.substr(path.find_last_of("/") + 1);
       std::string fullPath = directory + "/" + filename;
 
