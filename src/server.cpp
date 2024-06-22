@@ -316,7 +316,7 @@ HTTPResponse respond(HTTPRequest request) {
       HTTPHeaders headers = HTTPHeaders();
       headers.add("Content-Type", "text/plain");
       headers.add("Content-Length", message.size());
-      if (request.getHeaders().getHeader("Accept-Encoding") == "gzip") {
+      if (request.getHeaders().getHeader("Accept-Encoding").contains("gzip")) {
         headers.add("Content-Encoding", "gzip");
       }
 
