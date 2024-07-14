@@ -221,16 +221,12 @@ void static trimInPlace(std::string &s) {
   std::string::iterator c;
 
   c = s.begin();
-  while (*c == ' ') {
+  while (*(c++) == ' ')
     s = s.substr(1);
-    c++;
-  }
 
   c = s.end();
-  while (*c == ' ') {
+  while (*(c--) == ' ')
     s = s.substr(0, s.size());
-    c--;
-  }
 }
 
 class HTTPRequest {
