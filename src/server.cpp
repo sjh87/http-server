@@ -21,6 +21,7 @@
 #define REQUEST_SIZE 2048
 #define SYSTEM_CORE_COUNT 12
 #define MAX_CONNECTION_QUEUE_SIZE SYSTEM_CORE_COUNT * 3
+#define PORT 4221
 
 std::atomic<bool> running(true);
 int server_fd;
@@ -94,13 +95,14 @@ class HTTPHeaders {
       return headerStr;
     }
 
-    std::string getHeader(const std::string& key) const {
-        auto it = headerMap.find(key);
-        if (it != headerMap.end()) {
-            return it->second;
-        }
-    return "";
-}
+    std::string getHeader(const std::string &key) const {
+      auto it = headerMap.find(key);
+      if (it != headerMap.end())
+      {
+        return it->second;
+      }
+      return "";
+    }
 };
 
 class HTTPStatus {
@@ -299,24 +301,22 @@ HTTPResponse handlePostFile(const HTTPRequest& request) {
         return HTTPResponse(500);
     }
 
+    const HTTPHeaders headers = request.getHeaders();
+    if (headers.getHeader("Content-Type") != "application/octet-stream" ||
+        std::stoi(headers.getHeader("Content-Length")) != request.getBody().toString().size())
+      return HTTPResponse(400);
+
+
     const std::string filename = request.getPath().substr(request.getPath().find_last_of("/") + 1);
 
-    if (filename.empty() || request.getBody().toString().empty()) {
+    if (filename.empty() || request.getBody().toString().empty())
         return HTTPResponse(400);
-    }
 
     const std::string fullPath = directory + "/" + filename;
 
     std::ofstream file(fullPath);
-    if (file.fail()) {
+    if (file.fail())
         return HTTPResponse(500);
-    }
-
-    const HTTPHeaders headers = request.getHeaders();
-    if (headers.getHeader("Content-Type") != "application/octet-stream" ||
-        std::stoi(headers.getHeader("Content-Length")) != request.getBody().toString().size()) {
-        return HTTPResponse(400);
-    }
 
     file << request.getBody().toString();
     file.close();
@@ -527,10 +527,10 @@ int main(int argc, char **argv) {
   struct sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = INADDR_ANY;
-  server_addr.sin_port = htons(4221);
+  server_addr.sin_port = htons(PORT);
 
   if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) != 0) {
-    std::cerr << "Failed to bind to port 4221\n";
+    std::cerr << "Failed to bind to port " << PORT << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -545,10 +545,12 @@ int main(int argc, char **argv) {
   for (auto &thread:threadPool)
     thread = std::thread(ingestFromQueue, &q);
 
+  std::cout << "Server started! Waiting on port " << PORT << std::endl;
   while (running.load()) {
     struct sockaddr_in client_addr;
     int client_addr_len = sizeof(client_addr);
     int socket_desc = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+    std::cout << "Client connected from " << inet_ntoa(client_addr.sin_addr) << std::endl;
     q.push(socket_desc);
   }
 
