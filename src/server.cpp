@@ -76,11 +76,11 @@ class HTTPHeaders {
       headerMap = init;
     }
 
-    void add(std::string key, std::string value) {
+    void add(const std::string key, const std::string value) {
       headerMap[key] = value;
     }
 
-    void add(std::string key, int value) {
+    void add(const std::string key, int value) {
       headerMap[key] = std::to_string(value);
     }
 
@@ -154,23 +154,10 @@ public:
 
     HTTPBody(const char* v, size_t length) : buffer(v, v + length) {}
 
-    HTTPBody(const HTTPBody& other) = default;
-
-    HTTPBody(HTTPBody&& other) noexcept = default;
-
-    HTTPBody& operator=(const HTTPBody& other) = default;
-
-    HTTPBody& operator=(HTTPBody&& other) noexcept = default;
-
     ~HTTPBody() = default;
 
-    // Convert to string
     std::string toString() const {
         return std::string(buffer.begin(), buffer.end());
-    }
-
-    const char* data() const {
-        return buffer.data();
     }
 };
 
@@ -229,6 +216,23 @@ public:
     }
 };
 
+// remove leading and trailing whitespace from string in place
+void static trimInPlace(std::string &s) {
+  std::string::iterator c;
+
+  c = s.begin();
+  while (*c == ' ') {
+    s = s.substr(1);
+    c++;
+  }
+
+  c = s.end();
+  while (*c == ' ') {
+    s = s.substr(0, s.size());
+    c--;
+  }
+}
+
 class HTTPRequest {
   HTTPHeaders headers;
   HTTPBody body;
@@ -250,7 +254,10 @@ class HTTPRequest {
       if (endOfKey == -1) return;
 
       key = headerSection.substr(0, endOfKey);
-      value = headerSection.substr(endOfKey + 2, (endOfHeader - endOfKey) - 2);
+      value = headerSection.substr(endOfKey + 1, (endOfHeader - endOfKey) - 1);
+
+      trimInPlace(key);
+      trimInPlace(value);
 
       headers.add(key, value);
 
