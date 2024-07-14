@@ -18,10 +18,11 @@
 #include <thread>
 #include <zlib.h>
 
+#define CONNECTION_BACKLOG_QUEUE_MAX 10
+#define PORT 4221
 #define REQUEST_SIZE 2048
 #define SYSTEM_CORE_COUNT 12
 #define MAX_CONNECTION_QUEUE_SIZE SYSTEM_CORE_COUNT * 3
-#define PORT 4221
 
 std::atomic<bool> running(true);
 int server_fd;
@@ -520,7 +521,7 @@ int main(int argc, char **argv) {
   // prevents 'Address already in use' errors
   int reuse = 1;
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-    std::cerr << "setsockopt failed\n";
+    std::cerr << "setsockopt failed to configure server socket\n";
     return EXIT_FAILURE;
   }
 
@@ -534,9 +535,8 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  int connection_backlog = 10;
-  if (listen(server_fd, connection_backlog) != 0) {
-    std::cerr << "listen failed\n";
+  if (listen(server_fd, CONNECTION_BACKLOG_QUEUE_MAX)) {
+    std::cerr << "listen failed" << std::endl;
     return EXIT_FAILURE;
   }
 
