@@ -20,7 +20,7 @@
 
 #define CONNECTION_BACKLOG_QUEUE_MAX 10
 #define PORT 4221
-#define REQUEST_SIZE 2048
+#define REQUEST_SIZE_MAX 5'242'880
 #define SYSTEM_CORE_COUNT 12
 #define MAX_CONNECTION_QUEUE_SIZE SYSTEM_CORE_COUNT * 3
 
@@ -462,8 +462,8 @@ void closeServerHandler(int signal) {
 }
 
 void handleRequest(int socket_desc) {
-  char req[REQUEST_SIZE] = { '\0' };
-  ssize_t bytes_read = read(socket_desc, req, REQUEST_SIZE - 1);
+  char req[REQUEST_SIZE_MAX];
+  ssize_t bytes_read = read(socket_desc, req, REQUEST_SIZE_MAX);
 
   if (bytes_read == -1) {
     std::cout << "error when reading request!\n";
