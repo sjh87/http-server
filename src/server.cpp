@@ -220,17 +220,25 @@ public:
 };
 
 // remove leading and trailing whitespace from string in place
-void static trimInPlace(std::string &s) {
-  std::string::iterator c;
+static void trimInPlace(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
 
-  c = s.begin();
-  while (*(c++) == ' ')
-    s = s.substr(1);
-
-  c = s.end();
-  while (*(c--) == ' ')
-    s = s.substr(0, s.size());
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
 }
+
+class InvalidRequestException : public std::runtime_error {
+  std::string message;
+
+  public:
+    explicit InvalidRequestException(const std::string& message): std::runtime_error(message) {}
+    const char* what() const noexcept override {
+      return std::runtime_error::what();
+    }
+};
 
 class HTTPRequest {
   HTTPHeaders headers;
@@ -240,23 +248,33 @@ class HTTPRequest {
   void parseHeaders(std::string req) {
     std::size_t startOfHeaderSection = req.find_first_of("\r\n") + 2;
     std::size_t endOfHeaderSection = req.find_last_of("\r\n");
+    if (
+      startOfHeaderSection == endOfHeaderSection ||
+      startOfHeaderSection == std::string::npos ||
+      endOfHeaderSection == std::string::npos
+    )
+      throw InvalidRequestException("No header section in request");
+
     std::string headerSection =
       req.substr(startOfHeaderSection, endOfHeaderSection);
 
-    std::string key;
-    std::string value;
-
-    while (headerSection.size()) {
+    while (!headerSection.empty()) {
       std::size_t endOfHeader = headerSection.find_first_of("\r\n");
+      if (endOfHeader == std::string::npos)
+        return;
+
       std::size_t endOfKey = headerSection.find_first_of(":");
+      if (endOfKey == std::string::npos)
+        return;
 
-      if (endOfKey == -1) return;
-
-      key = headerSection.substr(0, endOfKey);
-      value = headerSection.substr(endOfKey + 1, (endOfHeader - endOfKey) - 1);
+      std::string key = headerSection.substr(0, endOfKey);
+      std::string value = headerSection.substr(endOfKey + 1, (endOfHeader - endOfKey) - 1);
 
       trimInPlace(key);
       trimInPlace(value);
+
+      if (key.empty() || value.empty())
+        return;
 
       headers.add(key, value);
 
@@ -265,8 +283,12 @@ class HTTPRequest {
   }
 
   public:
+    HTTPRequest() = default;
+
     HTTPRequest(std::string req) {
       std::string route = req.substr(0, req.find("\r\n"));
+      if (route.empty())
+        throw InvalidRequestException("path missing in HTTP request");
 
       parseHeaders(req);
       std::string p = route.substr(0, route.find_last_of(" "));
@@ -470,7 +492,13 @@ void handleRequest(int socket_desc) {
     return;
   }
 
-  HTTPRequest request = HTTPRequest(std::string(req));
+  HTTPRequest request;
+  try {
+    request = HTTPRequest(std::string(req));
+  } catch(InvalidRequestException e) {
+    std::cout << "Exception while processing request: " << e.what() << std::endl;
+    return;
+  }
 
   HTTPResponse response = respond(request);
 
