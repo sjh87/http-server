@@ -383,8 +383,12 @@ HTTPResponse handleEcho(const HTTPRequest& request) {
 
     if (request.getHeaders().getHeader("Accept-Encoding").contains("gzip")) {
         headers.add("Content-Encoding", "gzip");
-        std::vector<char> compressedBytes = gzip_compress(message);
-        responseBody = std::string(compressedBytes.begin(), compressedBytes.end());
+	try {
+            std::vector<char> compressedBytes = gzip_compress(message);
+            responseBody = std::string(compressedBytes.begin(), compressedBytes.end());
+	} catch (std::runtime_error &err) {
+	    return HTTPResponse(500)
+	}
     } else {
         responseBody = message;
     }
