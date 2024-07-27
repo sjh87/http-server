@@ -387,7 +387,7 @@ HTTPResponse handleEcho(const HTTPRequest& request) {
             std::vector<char> compressedBytes = gzip_compress(message);
             responseBody = std::string(compressedBytes.begin(), compressedBytes.end());
 	} catch (std::runtime_error &err) {
-	    return HTTPResponse(500)
+	    return HTTPResponse(500);
 	}
     } else {
         responseBody = message;
